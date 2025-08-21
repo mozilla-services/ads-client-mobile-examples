@@ -6,17 +6,6 @@ This doc will outline how to:
 * Publish the component and the megazord to a local maven instance
 * Consume the components into a barebones example Android app for testing
 
-### Prerequisites
-
-* macOS or Linux with Android toolchain
-* Java 17+ (match your AGP)
-* Android Studio (recommended) or Gradle CLI
-* Android SDK + NDK
-* Rust + Cargo
-* CMake + ninja (commonly required by NDK builds)
-* Kotlin toolchain aligned with App Services artifacts (currently **Kotlin 2.2.10** in our setup)
-* Access to **maven.mozilla.org** (for Android Components)
-* A working build process for application-services. See the [docs](https://github.com/mozilla/application-services/blob/main/docs/building.md) for more info.
 
 ### Other Repos
 
@@ -24,14 +13,27 @@ This doc will outline how to:
   * `components/ads-client/` (your Rust component)
 
 
-
 ## Local Setup with Android Studio
 
-1. Follow [this guide](https://github.com/mozilla/application-services/blob/main/docs/building.md#building-for-fenix) in A-S for *Building for Fenix* ignoring the first step where you clone firefox-android (not needed!).
-2. Make sure your env variables are set correctly and verify that the A-S script `./lib/verify-android-environment.sh` is green. (Follow it's recommendations otherwise)
+1. Checkout the latest `main` branch from Application-Services
+2. Download or verify you have Java17 installed. `java --version`
+  * You can use the openJDK via homebrew. `brew install openjdk@17`
+  * You do **not** need to make this a system default or symlink.
 
-3. Adjust Android Studio SDK settings
-If you are using a macOS, go to:
+3. Add `JAVA_HOME` to your env vars
+e.g.
+```shell
+export JAVA_HOME="$(brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+4. Download Android studio and add `ANDROID_SDK_ROOT` and `ANDROID_HOME` to tyour env vars.
+e.g.
+```shell
+export ANDROID_SDK_ROOT=~/Library/Android/sdk
+export ANDROID_HOME=~/Library/Android/sdk
+```
+
+5. Adjust Android Studio SDK settings to include the NDK and CLI
 
 ```
 Android Studio -> Settings -> Language and Frameworks -> Android SDK
@@ -41,8 +43,7 @@ From here select the `SDK Tools` section and enable the following:
 
 * NDK (Side by side) pinned to the version listed in [this doc](Build & Publish from Application Services)
 * Android SDK Command-line Tools (latest)
-
-Things like Android SDK Build-Tools and CMake should already be selected by default.
+* CMake `3.31.6`
 
 Once this is all complete, you should be able to follow the rest of this guide to publish a local A-S artifact and ingest it in the Android app!
 
@@ -50,8 +51,46 @@ Once this is all complete, you should be able to follow the rest of this guide t
 
 In order to test local changes to the application-services `ads-client` component, we can publish to a local Maven that the app can consume from.
 
+### Setup
+
+First make sure you have python 3.9 installed. Later or earlier version of python will not work.
+
+```shell
+pyenv install 3.9
+pyenv local 3.9.22
+```
+
+Install Ninja:
+```shell
+brew install ninja
+```
+
+Install wget
+```shell
+wget https://bootstrap.pypa.io/ez_setup.py -O - | python3 -
+git clone https://chromium.googlesource.com/external/gyp.git ~/tools/gyp
+cd ~/tools/gyp
+pip install .
+```
+
+Set paths:
+```shell
+export PATH="~/tools/gyp:$PATH"
+```
+
+You also will likely need `six`
+
+```shell
+pip install six
+```
+
 From the root of **application-services**:
 
+```shell
+./libs/verify-desktop-environment.sh
+```
+
+Now we can try building to local Maven!
 ```shell
 ./gradlew publishToMavenLocal
 ```
