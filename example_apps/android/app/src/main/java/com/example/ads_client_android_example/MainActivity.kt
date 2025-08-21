@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ads_client_android_example.ui.theme.AdsclientandroidexampleTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import com.example.ads_client_android_example.components.AdsScreen
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {

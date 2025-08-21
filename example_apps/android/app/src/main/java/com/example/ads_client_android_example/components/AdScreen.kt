@@ -1,4 +1,4 @@
-package com.example.ads_client_android_example
+package com.example.ads_client_android_example.components
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +24,6 @@ import mozilla.appservices.ads_client.MozAdsPlacement
 import mozilla.appservices.ads_client.MozAdsPlacementConfig
 import mozilla.appservices.ads_client.IabContent
 import mozilla.appservices.ads_client.IabContentTaxonomy
-
-import com.example.ads_client_android_example.components.AdCard
 
 @Composable
 fun AdsScreen(modifier: Modifier = Modifier) {
