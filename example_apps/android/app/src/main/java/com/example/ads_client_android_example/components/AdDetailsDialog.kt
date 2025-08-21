@@ -15,6 +15,7 @@ fun AdDetailsDialog(placement: MozAdsPlacement, onDismiss: () -> Unit = {}) {
     title = { Text("Ad details") },
     text = {
       val ad = placement.content
+      val callbacks = ad.callbacks
       val details = buildString {
         appendLine("{")
         appendLine("""  "placementId": "${placement.placementConfig.placementId}",""")
@@ -22,10 +23,9 @@ fun AdDetailsDialog(placement: MozAdsPlacement, onDismiss: () -> Unit = {}) {
         appendLine("""  "imageUrl": ${quoteOrNull(ad.imageUrl)},""")
         appendLine("""  "url": ${quoteOrNull(ad.url)},""")
         appendLine("""  "callbacks": {""")
-        val cb = ad.callbacks
-        appendLine("""    "click": ${quoteOrNull(cb?.click)},""")
-        appendLine("""    "impression": ${quoteOrNull(cb?.impression)},""")
-        appendLine("""    "report": ${quoteOrNull(cb?.report)}""")
+        appendLine("""    "click": ${quoteOrNull(callbacks?.click)},""")
+        appendLine("""    "impression": ${quoteOrNull(callbacks?.impression)},""")
+        appendLine("""    "report": ${quoteOrNull(callbacks?.report)}""")
         appendLine("  }")
         appendLine("}")
       }
