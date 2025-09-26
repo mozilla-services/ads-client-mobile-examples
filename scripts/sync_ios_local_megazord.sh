@@ -36,7 +36,7 @@ DEST_XCFRAMEWORK_DIR="$IOS_APP_DIR/MozillaRustComponents.xcframework"
 rm -rf "$DEST_XCFRAMEWORK_DIR"
 cp -R "$XCFRAMEWORK_PATH" "$DEST_XCFRAMEWORK_DIR"
 
-echo "Moving Swift bindings to Firefox iOS"
+echo "Moving Swift bindings to iOS example app"
 mkdir -p "$IOS_APP_DIR/MozillaRustComponentsWrapper/Generated"
 cp -R "$APPLICATION_SERVICES_PATH/megazords/ios-rust/Sources/MozillaRustComponentsWrapper/Generated/." "$IOS_APP_DIR/MozillaRustComponentsWrapper/Generated/"
 
