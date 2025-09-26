@@ -12,15 +12,18 @@ This doc will outline how to:
 * **application-services/** – Rust sources + Gradle build that produces Android artifacts
   * `components/ads-client/` (your Rust component)
 
+## Android
 
-## Local Setup with Android Studio
+### Local Setup with Android Studio
 
 1. Checkout the latest `main` branch from Application-Services
-2. Download or verify you have Java17 installed. `java --version`
+2. Follow the instructions in Application-Services to setup your local env to build the components. (See: `/docs/building.md`)
+3. Build the android components with `./build-all.sh android` in A-S
+4. Download or verify you have Java17 installed. `java --version`
   * You can use the openJDK via homebrew. `brew install openjdk@17`
   * You do **not** need to make this a system default or symlink.
 
-3. Add `JAVA_HOME` to your env vars
+5. Add `JAVA_HOME` to your env vars
 e.g.
 ```shell
 export JAVA_HOME="$(brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
@@ -33,7 +36,7 @@ export ANDROID_SDK_ROOT=~/Library/Android/sdk
 export ANDROID_HOME=~/Library/Android/sdk
 ```
 
-5. Adjust Android Studio SDK settings to include the NDK and CLI
+6. Adjust Android Studio SDK settings to include the NDK and CLI
 
 ```
 Android Studio -> Settings -> Language and Frameworks -> Android SDK
@@ -47,7 +50,7 @@ From here select the `SDK Tools` section and enable the following:
 
 Once this is all complete, you should be able to follow the rest of this guide to publish a local A-S artifact and ingest it in the Android app!
 
-## Build & Publish from Application Services
+### Build & Publish from Application Services to local Maven
 
 In order to test local changes to the application-services `ads-client` component, we can publish to a local Maven that the app can consume from.
 
@@ -114,13 +117,7 @@ You can verify which components have been installed with:
 
 We only need `ads-client` and `httpconfig`.
 
-### Common issues
-
-Many I'm sure, but currently the sample size is 1... so this will be updated as more people go through this process.
-
-## Running the example apps
-
-### Android
+### Running the example Android app
 
 To run our Android app, simply build the project through Android Studios UI or do:
 
@@ -130,42 +127,27 @@ To run our Android app, simply build the project through Android Studios UI or d
 
 You can then start the app using the built-in Android Studio emulators. Assuming there are no issues in the build, you should see a simple UI which allows us to fetch two billboard ads from MARS prod. Once fetched, we show the ad as well as display buttons that fire a click, impression, or report callback.
 
-### iOS 
+## iOS
 
-Under Construction
+iOS should be much simpler, because we just directly copy the generated objects to the iOS repo instead of trying to link to them.
 
-## Building a new application
+### Building iOS Artifacts
 
-To build a new application that reads from the local maven repository, you can follow the steps below
+We do not commit the .xcframework binary directly to git, so we have to generate it locally. To do this, you can just run:
 
-### Android
-
-Android apps should be setup up so that repositories include **`mavenLocal()`**, **Google**, **Maven Central**, and **`https://maven.mozilla.org/maven2`**. See: `./example_apps/android/settings.gradle.kts`.
-
-Then we can add whatever dependencies we need to `biuld.gradle.kts`. e.g.
-
-```kts
-    implementation("org.mozilla.appservices:ads-client:143.0a1")
-    implementation("org.mozilla.appservices:httpconfig:143.0a1")
-    ...
+```sh
+./scripts/sync_ios_local_megazord.sh --app-services <path-to-application-services> -mobile-examples <path-to-ads-client-mobile-examples>
 ```
 
-We additionally need:
+This will build the necessary iOS artifacts and generated Swift code in Application-Services and copy the needed files to our iOS app.
 
-```kts
-    implementation("org.mozilla.components:concept-fetch:143.0b1")
-    implementation("org.mozilla.components:lib-fetch-okhttp:143.0b1")
-```
+### Running the Example App locally
 
-In order to create an `OkHTTPClient` to initialize the Rust backend with. Without this, we cannot make HTTP requests through `viaduct`.
-
-If these steps are followed, you should be able to just import our ad-client rust component like any other library from Maven!
-
-### iOS
-
-**Under Construction**
+Assuming the build system in A-S is setup correctly, you should be good to build and run the iOS after the script above complete! It is easiest just to launch it directly from XCode.
 
 ## Local Component Development and Testing
+
+### Android
 
 A primary reason for building this example app is to allow for us to rapidly test changes to the Rust component in a "real" android app. For development, I prefer the following flow:
 
@@ -183,3 +165,8 @@ A primary reason for building this example app is to allow for us to rapidly tes
 ```
 
 * Re-run the emulator and your changes should appear!
+
+
+### iOS
+
+Once changes are made to the Rust component, you can just re-run the sync script and re-build.
