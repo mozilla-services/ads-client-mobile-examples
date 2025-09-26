@@ -56,6 +56,8 @@ In order to test local changes to the application-services `ads-client` componen
 
 ### Setup
 
+Try to go through the steps outlined in the A-S guide [here](https://github.com/mozilla/application-services/blob/main/docs/building.md#building-for-fenix). However, you may need some additional steps as well. Namely:
+
 First make sure you have python 3.9 installed. Later or earlier version of python will not work.
 
 ```shell
