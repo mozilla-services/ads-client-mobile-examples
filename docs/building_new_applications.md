@@ -1,6 +1,6 @@
 # Building New Applications
 
-this doc outlines how to build a new android or ios app that an ingest from a local build of Application Services.
+this doc outlines how to build a new Android or iOS app that an ingest from a local build of Application Services.
 
 ## Building a new Android application
 
@@ -29,10 +29,11 @@ If these steps are followed, you should be able to just import our ad-client rus
 
 ## Building a new iOS application
 
-Building a new iOS app that ingests these components locally is pretty straight forward.
+Building a new iOS app that ingests these components locally is hopefully pretty straight forward as we just copy the files we need generated from A-S.
 
+The steps are:
 1. Use XCode to generate a new project
 2. Add the `glean` package dependency found at `https://github.com/mozilla/glean-swift`
 3. Go to the **Build Phases** settings for the app, and include `libc++.tbd` and `libc++abi.tbd` In **Link Binary With Libraries**.
-4. Copy the generated `.xcframework` and any needed swift wrappers to the repo. 
+4. Copy the generated `.xcframework` and any needed swift wrappers to the working directory.
 5. Build and run your application!

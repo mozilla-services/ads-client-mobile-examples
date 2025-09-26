@@ -4,13 +4,13 @@ This doc will outline how to:
 
 * Build the `ads-client` Rust UniFFI component (`components/ads-client`) from mozilla/application-services
 * Publish the component and the megazord to a local maven instance
-* Consume the components into a barebones example Android app for testing
+* Consume the components into a barebones example Android or iOS app for testing and debugging.
 
 
 ### Other Repos
 
 * **application-services/** – Rust sources + Gradle build that produces Android artifacts
-  * `components/ads-client/` (your Rust component)
+  * `components/ads-client/`
 
 ## Android
 
@@ -52,7 +52,7 @@ Once this is all complete, you should be able to follow the rest of this guide t
 
 ### Build & Publish from Application Services to local Maven
 
-In order to test local changes to the application-services `ads-client` component, we can publish to a local Maven that the app can consume from.
+In order to test local changes to the application-services `ads-client` component, we can publish to a local Maven instance that the app can consume from.
 
 ### Setup
 
@@ -92,6 +92,13 @@ From the root of **application-services**:
 ```shell
 ./libs/verify-desktop-environment.sh
 ```
+
+
+Build the Android artifacts with:
+```shell
+./build-all.sh android
+```
+
 
 Now we can try building to local Maven!
 ```shell
@@ -133,7 +140,7 @@ iOS should be much simpler, because we just directly copy the generated objects 
 
 ### Building iOS Artifacts
 
-We do not commit the .xcframework binary directly to git, so we have to generate it locally. To do this, you can just run:
+We do not commit the .xcframework binary directly to git, so we have to generate it locally. To do this we have a script:
 
 ```sh
 ./scripts/sync_ios_local_megazord.sh --app-services <path-to-application-services> -mobile-examples <path-to-ads-client-mobile-examples>
