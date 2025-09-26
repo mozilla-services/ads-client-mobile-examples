@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ads_client_android_example"
+    namespace = "com.example.adsclientexampleandroid"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.ads_client_android_example"
+        applicationId = "com.example.adsclientexampleandroid"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
