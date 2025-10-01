@@ -91,6 +91,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A219A2F32E8C95D500FEB6A5 /* Ads */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Ads;
+			sourceTree = "<group>";
+		};
 		A24670A12E8701AD00DC2127 /* AdsClientExampleIOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = AdsClientExampleIOS;
@@ -140,6 +145,7 @@
 		A24670962E8701AD00DC2127 = {
 			isa = PBXGroup;
 			children = (
+				A219A2F32E8C95D500FEB6A5 /* Ads */,
 				A24670A12E8701AD00DC2127 /* AdsClientExampleIOS */,
 				A24670AF2E8701AE00DC2127 /* AdsClientExampleIOSTests */,
 				A24670B92E8701AE00DC2127 /* AdsClientExampleIOSUITests */,
@@ -242,6 +248,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				A219A2F32E8C95D500FEB6A5 /* Ads */,
 				A24670A12E8701AD00DC2127 /* AdsClientExampleIOS */,
 			);
 			name = AdsClientExampleIOS;
