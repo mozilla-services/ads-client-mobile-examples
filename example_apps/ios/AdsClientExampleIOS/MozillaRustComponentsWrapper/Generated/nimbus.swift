@@ -590,11 +590,7 @@ public protocol NimbusClientProtocol: AnyObject, Sendable {
     
     func getFeatureConfigVariables(featureId: String) throws  -> String?
     
-    /**
-     * Getter and setter for global user participation (applies to both experiments and rollouts).
-     * For simplicity, the getter returns the experiment participation value.
-     */
-    func getGlobalUserParticipation() throws  -> Bool
+    func getPreviousGeckoPrefStates(experimentSlug: String) throws  -> [PreviousGeckoPrefState]?
     
     /**
      * Getter and setter for user's participation in rollouts.
@@ -666,6 +662,8 @@ public protocol NimbusClientProtocol: AnyObject, Sendable {
      */
     func recordPastEvent(eventId: String, secondsAgo: Int64, count: Int64) throws 
     
+    func registerPreviousGeckoPrefStates(geckoPrefStates: [GeckoPrefState]) throws 
+    
     /**
      * These are test-only functions and should never be exposed to production
      * users, as they mess with the "statistical requirements" of the SDK.
@@ -708,8 +706,6 @@ public protocol NimbusClientProtocol: AnyObject, Sendable {
      * `set_experiment_participation` or `set_rollout_participation` instead.
      */
     func setFetchEnabled(flag: Bool) throws 
-    
-    func setGlobalUserParticipation(optIn: Bool) throws  -> [EnrollmentChangeEvent]
     
     func setRolloutParticipation(optIn: Bool) throws  -> [EnrollmentChangeEvent]
     
@@ -755,7 +751,7 @@ open class NimbusClient: NimbusClientProtocol, @unchecked Sendable {
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
         return try! rustCall { uniffi_nimbus_fn_clone_nimbusclient(self.pointer, $0) }
     }
-public convenience init(appCtx: AppContext, recordedContext: RecordedContext?, coenrollingFeatureIds: [String], dbpath: String, remoteSettingsConfig: RemoteSettingsConfig?, metricsHandler: MetricsHandler, geckoPrefHandler: GeckoPrefHandler?)throws  {
+public convenience init(appCtx: AppContext, recordedContext: RecordedContext?, coenrollingFeatureIds: [String], dbpath: String, metricsHandler: MetricsHandler, geckoPrefHandler: GeckoPrefHandler?, remoteSettingsService: RemoteSettingsService?, collectionName: String?)throws  {
     let pointer =
         try rustCallWithError(FfiConverterTypeNimbusError_lift) {
     uniffi_nimbus_fn_constructor_nimbusclient_new(
@@ -763,9 +759,10 @@ public convenience init(appCtx: AppContext, recordedContext: RecordedContext?, c
         FfiConverterOptionTypeRecordedContext.lower(recordedContext),
         FfiConverterSequenceString.lower(coenrollingFeatureIds),
         FfiConverterString.lower(dbpath),
-        FfiConverterOptionTypeRemoteSettingsConfig.lower(remoteSettingsConfig),
         FfiConverterCallbackInterfaceMetricsHandler_lower(metricsHandler),
-        FfiConverterOptionCallbackInterfaceGeckoPrefHandler.lower(geckoPrefHandler),$0
+        FfiConverterOptionCallbackInterfaceGeckoPrefHandler.lower(geckoPrefHandler),
+        FfiConverterOptionTypeRemoteSettingsService.lower(remoteSettingsService),
+        FfiConverterOptionString.lower(collectionName),$0
     )
 }
     self.init(unsafeFromRawPointer: pointer)
@@ -918,13 +915,10 @@ open func getFeatureConfigVariables(featureId: String)throws  -> String?  {
 })
 }
     
-    /**
-     * Getter and setter for global user participation (applies to both experiments and rollouts).
-     * For simplicity, the getter returns the experiment participation value.
-     */
-open func getGlobalUserParticipation()throws  -> Bool  {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeNimbusError_lift) {
-    uniffi_nimbus_fn_method_nimbusclient_get_global_user_participation(self.uniffiClonePointer(),$0
+open func getPreviousGeckoPrefStates(experimentSlug: String)throws  -> [PreviousGeckoPrefState]?  {
+    return try  FfiConverterOptionSequenceTypePreviousGeckoPrefState.lift(try rustCallWithError(FfiConverterTypeNimbusError_lift) {
+    uniffi_nimbus_fn_method_nimbusclient_get_previous_gecko_pref_states(self.uniffiClonePointer(),
+        FfiConverterString.lower(experimentSlug),$0
     )
 })
 }
@@ -1051,6 +1045,13 @@ open func recordPastEvent(eventId: String, secondsAgo: Int64, count: Int64 = Int
 }
 }
     
+open func registerPreviousGeckoPrefStates(geckoPrefStates: [GeckoPrefState])throws   {try rustCallWithError(FfiConverterTypeNimbusError_lift) {
+    uniffi_nimbus_fn_method_nimbusclient_register_previous_gecko_pref_states(self.uniffiClonePointer(),
+        FfiConverterSequenceTypeGeckoPrefState.lower(geckoPrefStates),$0
+    )
+}
+}
+    
     /**
      * These are test-only functions and should never be exposed to production
      * users, as they mess with the "statistical requirements" of the SDK.
@@ -1117,14 +1118,6 @@ open func setFetchEnabled(flag: Bool)throws   {try rustCallWithError(FfiConverte
         FfiConverterBool.lower(flag),$0
     )
 }
-}
-    
-open func setGlobalUserParticipation(optIn: Bool)throws  -> [EnrollmentChangeEvent]  {
-    return try  FfiConverterSequenceTypeEnrollmentChangeEvent.lift(try rustCallWithError(FfiConverterTypeNimbusError_lift) {
-    uniffi_nimbus_fn_method_nimbusclient_set_global_user_participation(self.uniffiClonePointer(),
-        FfiConverterBool.lower(optIn),$0
-    )
-})
 }
     
 open func setRolloutParticipation(optIn: Bool)throws  -> [EnrollmentChangeEvent]  {
@@ -1360,6 +1353,12 @@ public protocol NimbusTargetingHelperProtocol: AnyObject, Sendable {
      */
     func evalJexl(expression: String) throws  -> Bool
     
+    /**
+     * Evaluate a JEXL expression and return debug results as JSON.
+     * For CLI testing and debugging.
+     */
+    func evalJexlDebug(expression: String) throws  -> String
+    
 }
 open class NimbusTargetingHelper: NimbusTargetingHelperProtocol, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
@@ -1420,6 +1419,18 @@ open class NimbusTargetingHelper: NimbusTargetingHelperProtocol, @unchecked Send
 open func evalJexl(expression: String)throws  -> Bool  {
     return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeNimbusError_lift) {
     uniffi_nimbus_fn_method_nimbustargetinghelper_eval_jexl(self.uniffiClonePointer(),
+        FfiConverterString.lower(expression),$0
+    )
+})
+}
+    
+    /**
+     * Evaluate a JEXL expression and return debug results as JSON.
+     * For CLI testing and debugging.
+     */
+open func evalJexlDebug(expression: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeNimbusError_lift) {
+    uniffi_nimbus_fn_method_nimbustargetinghelper_eval_jexl_debug(self.uniffiClonePointer(),
         FfiConverterString.lower(expression),$0
     )
 })
@@ -1761,12 +1772,11 @@ public struct AppContext {
     public var androidSdkVersion: String?
     public var debugTag: String?
     public var installationDate: Int64?
-    public var homeDirectory: String?
     public var customTargetingAttributes: JsonObject?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(appName: String, appId: String, channel: String, appVersion: String?, appBuild: String?, architecture: String?, deviceManufacturer: String?, deviceModel: String?, locale: String?, os: String?, osVersion: String?, androidSdkVersion: String?, debugTag: String?, installationDate: Int64?, homeDirectory: String?, customTargetingAttributes: JsonObject?) {
+    public init(appName: String, appId: String, channel: String, appVersion: String?, appBuild: String?, architecture: String?, deviceManufacturer: String?, deviceModel: String?, locale: String?, os: String?, osVersion: String?, androidSdkVersion: String?, debugTag: String?, installationDate: Int64?, customTargetingAttributes: JsonObject?) {
         self.appName = appName
         self.appId = appId
         self.channel = channel
@@ -1781,7 +1791,6 @@ public struct AppContext {
         self.androidSdkVersion = androidSdkVersion
         self.debugTag = debugTag
         self.installationDate = installationDate
-        self.homeDirectory = homeDirectory
         self.customTargetingAttributes = customTargetingAttributes
     }
 }
@@ -1835,9 +1844,6 @@ extension AppContext: Equatable, Hashable {
         if lhs.installationDate != rhs.installationDate {
             return false
         }
-        if lhs.homeDirectory != rhs.homeDirectory {
-            return false
-        }
         if lhs.customTargetingAttributes != rhs.customTargetingAttributes {
             return false
         }
@@ -1859,7 +1865,6 @@ extension AppContext: Equatable, Hashable {
         hasher.combine(androidSdkVersion)
         hasher.combine(debugTag)
         hasher.combine(installationDate)
-        hasher.combine(homeDirectory)
         hasher.combine(customTargetingAttributes)
     }
 }
@@ -1887,7 +1892,6 @@ public struct FfiConverterTypeAppContext: FfiConverterRustBuffer {
                 androidSdkVersion: FfiConverterOptionString.read(from: &buf), 
                 debugTag: FfiConverterOptionString.read(from: &buf), 
                 installationDate: FfiConverterOptionInt64.read(from: &buf), 
-                homeDirectory: FfiConverterOptionString.read(from: &buf), 
                 customTargetingAttributes: FfiConverterOptionTypeJsonObject.read(from: &buf)
         )
     }
@@ -1907,7 +1911,6 @@ public struct FfiConverterTypeAppContext: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.androidSdkVersion, into: &buf)
         FfiConverterOptionString.write(value.debugTag, into: &buf)
         FfiConverterOptionInt64.write(value.installationDate, into: &buf)
-        FfiConverterOptionString.write(value.homeDirectory, into: &buf)
         FfiConverterOptionTypeJsonObject.write(value.customTargetingAttributes, into: &buf)
     }
 }
@@ -2295,16 +2298,18 @@ public struct EnrollmentStatusExtraDef {
     public var reason: String?
     public var slug: String?
     public var status: String?
+    public var prevGeckoPrefStates: [PreviousGeckoPrefState]?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(branch: String?, conflictSlug: String?, errorString: String?, reason: String?, slug: String?, status: String?) {
+    public init(branch: String?, conflictSlug: String?, errorString: String?, reason: String?, slug: String?, status: String?, prevGeckoPrefStates: [PreviousGeckoPrefState]?) {
         self.branch = branch
         self.conflictSlug = conflictSlug
         self.errorString = errorString
         self.reason = reason
         self.slug = slug
         self.status = status
+        self.prevGeckoPrefStates = prevGeckoPrefStates
     }
 }
 
@@ -2333,6 +2338,9 @@ extension EnrollmentStatusExtraDef: Equatable, Hashable {
         if lhs.status != rhs.status {
             return false
         }
+        if lhs.prevGeckoPrefStates != rhs.prevGeckoPrefStates {
+            return false
+        }
         return true
     }
 
@@ -2343,6 +2351,7 @@ extension EnrollmentStatusExtraDef: Equatable, Hashable {
         hasher.combine(reason)
         hasher.combine(slug)
         hasher.combine(status)
+        hasher.combine(prevGeckoPrefStates)
     }
 }
 
@@ -2360,7 +2369,8 @@ public struct FfiConverterTypeEnrollmentStatusExtraDef: FfiConverterRustBuffer {
                 errorString: FfiConverterOptionString.read(from: &buf), 
                 reason: FfiConverterOptionString.read(from: &buf), 
                 slug: FfiConverterOptionString.read(from: &buf), 
-                status: FfiConverterOptionString.read(from: &buf)
+                status: FfiConverterOptionString.read(from: &buf), 
+                prevGeckoPrefStates: FfiConverterOptionSequenceTypePreviousGeckoPrefState.read(from: &buf)
         )
     }
 
@@ -2371,6 +2381,7 @@ public struct FfiConverterTypeEnrollmentStatusExtraDef: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.reason, into: &buf)
         FfiConverterOptionString.write(value.slug, into: &buf)
         FfiConverterOptionString.write(value.status, into: &buf)
+        FfiConverterOptionSequenceTypePreviousGeckoPrefState.write(value.prevGeckoPrefStates, into: &buf)
     }
 }
 
@@ -2780,14 +2791,94 @@ public func FfiConverterTypeMalformedFeatureConfigExtraDef_lower(_ value: Malfor
 }
 
 
+public struct OriginalGeckoPref {
+    public var pref: String
+    public var branch: PrefBranch
+    public var value: PrefValue?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(pref: String, branch: PrefBranch, value: PrefValue?) {
+        self.pref = pref
+        self.branch = branch
+        self.value = value
+    }
+}
+
+#if compiler(>=6)
+extension OriginalGeckoPref: Sendable {}
+#endif
+
+
+extension OriginalGeckoPref: Equatable, Hashable {
+    public static func ==(lhs: OriginalGeckoPref, rhs: OriginalGeckoPref) -> Bool {
+        if lhs.pref != rhs.pref {
+            return false
+        }
+        if lhs.branch != rhs.branch {
+            return false
+        }
+        if lhs.value != rhs.value {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(pref)
+        hasher.combine(branch)
+        hasher.combine(value)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeOriginalGeckoPref: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OriginalGeckoPref {
+        return
+            try OriginalGeckoPref(
+                pref: FfiConverterString.read(from: &buf), 
+                branch: FfiConverterTypePrefBranch.read(from: &buf), 
+                value: FfiConverterOptionTypePrefValue.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: OriginalGeckoPref, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.pref, into: &buf)
+        FfiConverterTypePrefBranch.write(value.branch, into: &buf)
+        FfiConverterOptionTypePrefValue.write(value.value, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOriginalGeckoPref_lift(_ buf: RustBuffer) throws -> OriginalGeckoPref {
+    return try FfiConverterTypeOriginalGeckoPref.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeOriginalGeckoPref_lower(_ value: OriginalGeckoPref) -> RustBuffer {
+    return FfiConverterTypeOriginalGeckoPref.lower(value)
+}
+
+
 public struct PrefEnrollmentData {
+    public var experimentSlug: String
     public var prefValue: PrefValue
     public var featureId: String
     public var variable: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(prefValue: PrefValue, featureId: String, variable: String) {
+    public init(experimentSlug: String, prefValue: PrefValue, featureId: String, variable: String) {
+        self.experimentSlug = experimentSlug
         self.prefValue = prefValue
         self.featureId = featureId
         self.variable = variable
@@ -2801,6 +2892,9 @@ extension PrefEnrollmentData: Sendable {}
 
 extension PrefEnrollmentData: Equatable, Hashable {
     public static func ==(lhs: PrefEnrollmentData, rhs: PrefEnrollmentData) -> Bool {
+        if lhs.experimentSlug != rhs.experimentSlug {
+            return false
+        }
         if lhs.prefValue != rhs.prefValue {
             return false
         }
@@ -2814,6 +2908,7 @@ extension PrefEnrollmentData: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
+        hasher.combine(experimentSlug)
         hasher.combine(prefValue)
         hasher.combine(featureId)
         hasher.combine(variable)
@@ -2829,6 +2924,7 @@ public struct FfiConverterTypePrefEnrollmentData: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PrefEnrollmentData {
         return
             try PrefEnrollmentData(
+                experimentSlug: FfiConverterString.read(from: &buf), 
                 prefValue: FfiConverterTypePrefValue.read(from: &buf), 
                 featureId: FfiConverterString.read(from: &buf), 
                 variable: FfiConverterString.read(from: &buf)
@@ -2836,6 +2932,7 @@ public struct FfiConverterTypePrefEnrollmentData: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: PrefEnrollmentData, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.experimentSlug, into: &buf)
         FfiConverterTypePrefValue.write(value.prefValue, into: &buf)
         FfiConverterString.write(value.featureId, into: &buf)
         FfiConverterString.write(value.variable, into: &buf)
@@ -2855,6 +2952,84 @@ public func FfiConverterTypePrefEnrollmentData_lift(_ buf: RustBuffer) throws ->
 #endif
 public func FfiConverterTypePrefEnrollmentData_lower(_ value: PrefEnrollmentData) -> RustBuffer {
     return FfiConverterTypePrefEnrollmentData.lower(value)
+}
+
+
+public struct PreviousGeckoPrefState {
+    public var originalValue: OriginalGeckoPref
+    public var featureId: String
+    public var variable: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(originalValue: OriginalGeckoPref, featureId: String, variable: String) {
+        self.originalValue = originalValue
+        self.featureId = featureId
+        self.variable = variable
+    }
+}
+
+#if compiler(>=6)
+extension PreviousGeckoPrefState: Sendable {}
+#endif
+
+
+extension PreviousGeckoPrefState: Equatable, Hashable {
+    public static func ==(lhs: PreviousGeckoPrefState, rhs: PreviousGeckoPrefState) -> Bool {
+        if lhs.originalValue != rhs.originalValue {
+            return false
+        }
+        if lhs.featureId != rhs.featureId {
+            return false
+        }
+        if lhs.variable != rhs.variable {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(originalValue)
+        hasher.combine(featureId)
+        hasher.combine(variable)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePreviousGeckoPrefState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PreviousGeckoPrefState {
+        return
+            try PreviousGeckoPrefState(
+                originalValue: FfiConverterTypeOriginalGeckoPref.read(from: &buf), 
+                featureId: FfiConverterString.read(from: &buf), 
+                variable: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PreviousGeckoPrefState, into buf: inout [UInt8]) {
+        FfiConverterTypeOriginalGeckoPref.write(value.originalValue, into: &buf)
+        FfiConverterString.write(value.featureId, into: &buf)
+        FfiConverterString.write(value.variable, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePreviousGeckoPrefState_lift(_ buf: RustBuffer) throws -> PreviousGeckoPrefState {
+    return try FfiConverterTypePreviousGeckoPrefState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePreviousGeckoPrefState_lower(_ value: PreviousGeckoPrefState) -> RustBuffer {
+    return FfiConverterTypePreviousGeckoPrefState.lower(value)
 }
 
 // Note that we don't yet support `indirect` for enums.
@@ -3801,6 +3976,30 @@ fileprivate struct FfiConverterOptionTypeRecordedContext: FfiConverterRustBuffer
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeRemoteSettingsService: FfiConverterRustBuffer {
+    typealias SwiftType = RemoteSettingsService?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeRemoteSettingsService.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeRemoteSettingsService.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypePrefEnrollmentData: FfiConverterRustBuffer {
     typealias SwiftType = PrefEnrollmentData?
 
@@ -3825,30 +4024,6 @@ fileprivate struct FfiConverterOptionTypePrefEnrollmentData: FfiConverterRustBuf
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionTypeRemoteSettingsConfig: FfiConverterRustBuffer {
-    typealias SwiftType = RemoteSettingsConfig?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeRemoteSettingsConfig.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeRemoteSettingsConfig.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterOptionCallbackInterfaceGeckoPrefHandler: FfiConverterRustBuffer {
     typealias SwiftType = GeckoPrefHandler?
 
@@ -3865,6 +4040,30 @@ fileprivate struct FfiConverterOptionCallbackInterfaceGeckoPrefHandler: FfiConve
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterCallbackInterfaceGeckoPrefHandler.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionSequenceTypePreviousGeckoPrefState: FfiConverterRustBuffer {
+    typealias SwiftType = [PreviousGeckoPrefState]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceTypePreviousGeckoPrefState.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceTypePreviousGeckoPrefState.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -4088,6 +4287,31 @@ fileprivate struct FfiConverterSequenceTypeGeckoPrefState: FfiConverterRustBuffe
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeGeckoPrefState.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePreviousGeckoPrefState: FfiConverterRustBuffer {
+    typealias SwiftType = [PreviousGeckoPrefState]
+
+    public static func write(_ value: [PreviousGeckoPrefState], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePreviousGeckoPrefState.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PreviousGeckoPrefState] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PreviousGeckoPrefState]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePreviousGeckoPrefState.read(from: &buf))
         }
         return seq
     }
@@ -4368,7 +4592,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_nimbus_checksum_method_nimbusclient_get_feature_config_variables() != 7354) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_nimbus_checksum_method_nimbusclient_get_global_user_participation() != 53001) {
+    if (uniffi_nimbus_checksum_method_nimbusclient_get_previous_gecko_pref_states() != 59676) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nimbus_checksum_method_nimbusclient_get_rollout_participation() != 60391) {
@@ -4398,6 +4622,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_nimbus_checksum_method_nimbusclient_record_past_event() != 4442) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_nimbus_checksum_method_nimbusclient_register_previous_gecko_pref_states() != 50441) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_nimbus_checksum_method_nimbusclient_reset_enrollments() != 39284) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4411,9 +4638,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nimbus_checksum_method_nimbusclient_set_fetch_enabled() != 64996) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_nimbus_checksum_method_nimbusclient_set_global_user_participation() != 42180) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nimbus_checksum_method_nimbusclient_set_rollout_participation() != 7151) {
@@ -4431,6 +4655,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_nimbus_checksum_method_nimbustargetinghelper_eval_jexl() != 42395) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_nimbus_checksum_method_nimbustargetinghelper_eval_jexl_debug() != 60924) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_nimbus_checksum_method_recordedcontext_get_event_queries() != 28844) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4443,7 +4670,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_nimbus_checksum_method_recordedcontext_to_json() != 46595) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_nimbus_checksum_constructor_nimbusclient_new() != 16871) {
+    if (uniffi_nimbus_checksum_constructor_nimbusclient_new() != 28763) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_nimbus_checksum_method_geckoprefhandler_get_prefs_with_state() != 54971) {
