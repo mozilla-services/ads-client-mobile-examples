@@ -25,13 +25,13 @@ fileprivate extension RustBuffer {
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
-        try! rustCall { ffi_rust_log_forwarder_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
+        try! rustCall { ffi_viaduct_hyper_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
     // Frees the buffer in place.
     // The buffer must not be used after this is called.
     func deallocate() {
-        try! rustCall { ffi_rust_log_forwarder_rustbuffer_free(self, $0) }
+        try! rustCall { ffi_viaduct_hyper_rustbuffer_free(self, $0) }
     }
 }
 
@@ -281,7 +281,7 @@ private func makeRustCall<T, E: Swift.Error>(
     _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T,
     errorHandler: ((RustBuffer) throws -> E)?
 ) throws -> T {
-    uniffiEnsureRustLogForwarderInitialized()
+    uniffiEnsureViaductHyperInitialized()
     var callStatus = RustCallStatus.init()
     let returnedVal = callback(&callStatus)
     try uniffiCheckCallStatus(callStatus: callStatus, errorHandler: errorHandler)
@@ -395,13 +395,7 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 
 
 // Public interface members begin here.
-// Magic number for the Rust proxy to call using the same mechanism as every other method,
-// to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
-// Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
@@ -443,334 +437,14 @@ fileprivate struct FfiConverterString: FfiConverter {
         writeBytes(&buf, value.utf8)
     }
 }
-
-
-public struct Record {
-    public var level: Level
-    public var target: String
-    public var message: String
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(level: Level, target: String, message: String) {
-        self.level = level
-        self.target = target
-        self.message = message
-    }
-}
-
-#if compiler(>=6)
-extension Record: Sendable {}
-#endif
-
-
-extension Record: Equatable, Hashable {
-    public static func ==(lhs: Record, rhs: Record) -> Bool {
-        if lhs.level != rhs.level {
-            return false
-        }
-        if lhs.target != rhs.target {
-            return false
-        }
-        if lhs.message != rhs.message {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(level)
-        hasher.combine(target)
-        hasher.combine(message)
-    }
-}
-
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeRecord: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Record {
-        return
-            try Record(
-                level: FfiConverterTypeLevel.read(from: &buf), 
-                target: FfiConverterString.read(from: &buf), 
-                message: FfiConverterString.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: Record, into buf: inout [UInt8]) {
-        FfiConverterTypeLevel.write(value.level, into: &buf)
-        FfiConverterString.write(value.target, into: &buf)
-        FfiConverterString.write(value.message, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeRecord_lift(_ buf: RustBuffer) throws -> Record {
-    return try FfiConverterTypeRecord.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeRecord_lower(_ value: Record) -> RustBuffer {
-    return FfiConverterTypeRecord.lower(value)
-}
-
-// Note that we don't yet support `indirect` for enums.
-// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
-
-public enum Level {
-    
-    case error
-    case warn
-    case info
-    case debug
-    case trace
-}
-
-
-#if compiler(>=6)
-extension Level: Sendable {}
-#endif
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeLevel: FfiConverterRustBuffer {
-    typealias SwiftType = Level
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Level {
-        let variant: Int32 = try readInt(&buf)
-        switch variant {
-        
-        case 1: return .error
-        
-        case 2: return .warn
-        
-        case 3: return .info
-        
-        case 4: return .debug
-        
-        case 5: return .trace
-        
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    public static func write(_ value: Level, into buf: inout [UInt8]) {
-        switch value {
-        
-        
-        case .error:
-            writeInt(&buf, Int32(1))
-        
-        
-        case .warn:
-            writeInt(&buf, Int32(2))
-        
-        
-        case .info:
-            writeInt(&buf, Int32(3))
-        
-        
-        case .debug:
-            writeInt(&buf, Int32(4))
-        
-        
-        case .trace:
-            writeInt(&buf, Int32(5))
-        
-        }
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeLevel_lift(_ buf: RustBuffer) throws -> Level {
-    return try FfiConverterTypeLevel.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterTypeLevel_lower(_ value: Level) -> RustBuffer {
-    return FfiConverterTypeLevel.lower(value)
-}
-
-
-extension Level: Equatable, Hashable {}
-
-
-
-
-
-
-
-
-
-public protocol AppServicesLogger: AnyObject, Sendable {
-    
-    func log(record: Record) 
-    
-}
-
-
-// Put the implementation in a struct so we don't pollute the top-level namespace
-fileprivate struct UniffiCallbackInterfaceAppServicesLogger {
-
-    // Create the VTable using a series of closures.
-    // Swift automatically converts these into C callback functions.
-    //
-    // This creates 1-element array, since this seems to be the only way to construct a const
-    // pointer that we can pass to the Rust code.
-    static let vtable: [UniffiVTableCallbackInterfaceAppServicesLogger] = [UniffiVTableCallbackInterfaceAppServicesLogger(
-        log: { (
-            uniffiHandle: UInt64,
-            record: RustBuffer,
-            uniffiOutReturn: UnsafeMutableRawPointer,
-            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
-        ) in
-            let makeCall = {
-                () throws -> () in
-                guard let uniffiObj = try? FfiConverterCallbackInterfaceAppServicesLogger.handleMap.get(handle: uniffiHandle) else {
-                    throw UniffiInternalError.unexpectedStaleHandle
-                }
-                return uniffiObj.log(
-                     record: try FfiConverterTypeRecord_lift(record)
-                )
-            }
-
-            
-            let writeReturn = { () }
-            uniffiTraitInterfaceCall(
-                callStatus: uniffiCallStatus,
-                makeCall: makeCall,
-                writeReturn: writeReturn
-            )
-        },
-        uniffiFree: { (uniffiHandle: UInt64) -> () in
-            let result = try? FfiConverterCallbackInterfaceAppServicesLogger.handleMap.remove(handle: uniffiHandle)
-            if result == nil {
-                print("Uniffi callback interface AppServicesLogger: handle missing in uniffiFree")
-            }
-        }
-    )]
-}
-
-private func uniffiCallbackInitAppServicesLogger() {
-    uniffi_rust_log_forwarder_fn_init_callback_vtable_appserviceslogger(UniffiCallbackInterfaceAppServicesLogger.vtable)
-}
-
-// FfiConverter protocol for callback interfaces
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-fileprivate struct FfiConverterCallbackInterfaceAppServicesLogger {
-    fileprivate static let handleMap = UniffiHandleMap<AppServicesLogger>()
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-extension FfiConverterCallbackInterfaceAppServicesLogger : FfiConverter {
-    typealias SwiftType = AppServicesLogger
-    typealias FfiType = UInt64
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public static func lift(_ handle: UInt64) throws -> SwiftType {
-        try handleMap.get(handle: handle)
-    }
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        let handle: UInt64 = try readInt(&buf)
-        return try lift(handle)
-    }
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public static func lower(_ v: SwiftType) -> UInt64 {
-        return handleMap.insert(obj: v)
-    }
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
-        writeInt(&buf, lower(v))
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterCallbackInterfaceAppServicesLogger_lift(_ handle: UInt64) throws -> AppServicesLogger {
-    return try FfiConverterCallbackInterfaceAppServicesLogger.lift(handle)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-public func FfiConverterCallbackInterfaceAppServicesLogger_lower(_ v: AppServicesLogger) -> UInt64 {
-    return FfiConverterCallbackInterfaceAppServicesLogger.lower(v)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-fileprivate struct FfiConverterOptionCallbackInterfaceAppServicesLogger: FfiConverterRustBuffer {
-    typealias SwiftType = AppServicesLogger?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterCallbackInterfaceAppServicesLogger.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterCallbackInterfaceAppServicesLogger.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
 /**
- * Set the logger to forward to.
+ * Set the viaduct backend to the `hyper`-based one with HTTPS support.
  *
- * Once a logger is passed in, it cannot be changed.
- * However, you can pass in `None` to disable logging.
+ * Named `viaduct_init_backend_hyper` since that reads better on iOS/Swift where there aren't any
+ * namespaces.  Once we move to UniFII 0.31 we can use the renaming feature to do this instead.
  */
-public func setLogger(logger: AppServicesLogger?)  {try! rustCall() {
-    uniffi_rust_log_forwarder_fn_func_set_logger(
-        FfiConverterOptionCallbackInterfaceAppServicesLogger.lower(logger),$0
-    )
-}
-}
-/**
- * Set the maximum log level filter.  Records below this level will not be sent to the logger.
- * You must set this exactly once, before you call `set_logger()`
- */
-public func setMaxLevel(level: Level)  {try! rustCall() {
-    uniffi_rust_log_forwarder_fn_func_set_max_level(
-        FfiConverterTypeLevel_lower(level),$0
+public func viaductInitBackendHyper()throws   {try rustCallWithError(FfiConverterTypeViaductError_lift) {
+    uniffi_viaduct_hyper_fn_func_viaduct_init_backend_hyper($0
     )
 }
 }
@@ -786,27 +460,21 @@ private let initializationResult: InitializationResult = {
     // Get the bindings contract version from our ComponentInterface
     let bindings_contract_version = 29
     // Get the scaffolding contract version by calling the into the dylib
-    let scaffolding_contract_version = ffi_rust_log_forwarder_uniffi_contract_version()
+    let scaffolding_contract_version = ffi_viaduct_hyper_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_rust_log_forwarder_checksum_func_set_logger() != 26223) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_rust_log_forwarder_checksum_func_set_max_level() != 57087) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_rust_log_forwarder_checksum_method_appserviceslogger_log() != 59046) {
+    if (uniffi_viaduct_hyper_checksum_func_viaduct_init_backend_hyper() != 11598) {
         return InitializationResult.apiChecksumMismatch
     }
 
-    uniffiCallbackInitAppServicesLogger()
+    uniffiEnsureViaductInitialized()
     return InitializationResult.ok
 }()
 
 // Make the ensure init function public so that other modules which have external type references to
 // our types can call it.
-public func uniffiEnsureRustLogForwarderInitialized() {
+public func uniffiEnsureViaductHyperInitialized() {
     switch initializationResult {
     case .ok:
         break
