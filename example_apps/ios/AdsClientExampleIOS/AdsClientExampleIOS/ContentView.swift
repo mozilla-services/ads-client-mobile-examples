@@ -11,12 +11,9 @@ import SwiftUI
 struct ContentView: View {
     @State private var status = "Idle"
     @State private var placements: [String: MozAdsImage] = [:]
-    private let client = MozAdsClient(
-        clientConfig: MozAdsClientConfig(
-            environment: .staging,
-            cacheConfig: nil,
-            telemetry: nil
-        ))
+    private let client = MozAdsClientBuilder()
+        .environment(environment: .staging)
+        .build()
 
     var body: some View {
         VStack(spacing: 16) {

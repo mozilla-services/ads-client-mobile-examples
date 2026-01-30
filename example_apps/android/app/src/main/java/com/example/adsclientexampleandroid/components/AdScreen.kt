@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 import mozilla.appservices.adsclient.MozAdsClient
-import mozilla.appservices.adsclient.MozAdsClientConfig
+import mozilla.appservices.adsclient.MozAdsClientBuilder
 import mozilla.appservices.adsclient.MozAdsEnvironment
 import mozilla.appservices.adsclient.MozAdsImage
 import mozilla.appservices.adsclient.MozAdsPlacementRequest
@@ -30,13 +30,9 @@ import mozilla.appservices.adsclient.MozAdsIabContentTaxonomy
 @Composable
 fun AdsScreen(modifier: Modifier = Modifier) {
     val client = remember {
-        MozAdsClient(
-            MozAdsClientConfig(
-                environment = MozAdsEnvironment.STAGING,
-                cacheConfig = null,
-                telemetry = null
-            )
-        )
+        MozAdsClientBuilder()
+            .environment(MozAdsEnvironment.STAGING)
+            .build()
     }
     val scope = rememberCoroutineScope()
 
